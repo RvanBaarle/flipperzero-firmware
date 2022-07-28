@@ -1,0 +1,6 @@
+App(
+    appid="dcf77_start",
+    apptype=FlipperAppType.STARTUP,
+    entry_point="dcf77_on_system_start",
+    order=50,
+)

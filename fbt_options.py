@@ -77,6 +77,7 @@ FIRMWARE_APPS = {
         "basic_plugins",
         # Debug
         "debug_apps",
+        "dcf77_start",
     ],
     "unit_tests": [
         "basic_services",
