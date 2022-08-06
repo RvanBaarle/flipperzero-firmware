@@ -5,7 +5,6 @@
 #include "../blocks/encoder.h"
 #include "../blocks/generic.h"
 #include "../blocks/math.h"
-#include "manchester_decoder.h"
 
 #define TAG "SubGhzProtocolX10"
 
@@ -48,22 +47,13 @@ const SubGhzProtocolDecoder subghz_protocol_x10_decoder = {
     .get_string = subghz_protocol_decoder_x10_get_string,
 };
 
-//const SubGhzProtocolEncoder subghz_protocol_x10_encoder = {
-//    .alloc = subghz_protocol_encoder_x10_alloc,
-//    .free = subghz_protocol_encoder_x10_free,
-//
-//    .deserialize = subghz_protocol_encoder_x10_deserialize,
-//    .stop = subghz_protocol_encoder_x10_stop,
-//    .yield = subghz_protocol_encoder_x10_yield,
-//};
-
 const SubGhzProtocolEncoder subghz_protocol_x10_encoder = {
-    .alloc = NULL,
-    .free = NULL,
+    .alloc = subghz_protocol_encoder_x10_alloc,
+    .free = subghz_protocol_encoder_x10_free,
 
-    .deserialize = NULL,
-    .stop = NULL,
-    .yield = NULL,
+    .deserialize = subghz_protocol_encoder_x10_deserialize,
+    .stop = subghz_protocol_encoder_x10_stop,
+    .yield = subghz_protocol_encoder_x10_yield,
 };
 
 const SubGhzProtocol subghz_protocol_x10 = {
@@ -77,43 +67,114 @@ const SubGhzProtocol subghz_protocol_x10 = {
     .encoder = &subghz_protocol_x10_encoder,
 };
 
-//void* subghz_protocol_encoder_x10_alloc(SubGhzEnvironment* environment) {
-//    UNUSED(environment);
-//    SubGhzProtocolEncoderX10* instance = malloc(sizeof(SubGhzProtocolEncoderX10));
-//
-//    instance->base.protocol = &subghz_protocol_x10;
-//    instance->generic.protocol_name = instance->base.protocol->name;
-//
-//    instance->encoder.repeat = 10;
-//    instance->encoder.size_upload = 69; // TODO: determine
-//    instance->encoder.upload = malloc(instance->encoder.size_upload * sizeof(LevelDuration));
-//    instance->encoder.is_runing = false;
-//    return instance;
-//}
-//
-//void subghz_protocol_encoder_x10_free(void* context) {
-//    furi_assert(context);
-//    SubGhzProtocolEncoderX10* instance = context;
-//    free(instance->encoder.upload);
-//    free(instance);
-//}
-//
-//bool subghz_protocol_encoder_x10_deserialize(void* context, FlipperFormat* flipper_format) {
-//    furi_assert(context);
-//    SubGhzProtocolEncoderX10* instance = context;
-//    bool res = false;
-//    return res;
-//}
-//
-//void subghz_protocol_encoder_x10_stop(void* context) {
-//    SubGhzProtocolEncoderX10* instance = context;
-//    instance->encoder.is_runing = false;
-//}
-//
-//LevelDuration subghz_protocol_encoder_x10_yield(void* context) {
-//    // TODO: Stub
-//    return level_duration_reset();
-//}
+void* subghz_protocol_encoder_x10_alloc(SubGhzEnvironment* environment) {
+    UNUSED(environment);
+    SubGhzProtocolEncoderX10* instance = malloc(sizeof(SubGhzProtocolEncoderX10));
+
+    instance->base.protocol = &subghz_protocol_x10;
+    instance->generic.protocol_name = instance->base.protocol->name;
+
+    instance->encoder.repeat = 6;
+    instance->encoder.size_upload = 148;
+    instance->encoder.upload = malloc(instance->encoder.size_upload * sizeof(LevelDuration));
+    instance->encoder.is_runing = false;
+    return instance;
+}
+
+void subghz_protocol_encoder_x10_free(void* context) {
+    furi_assert(context);
+    SubGhzProtocolEncoderX10* instance = context;
+    free(instance->encoder.upload);
+    free(instance);
+}
+
+static bool subghz_protocol_encoder_x10_get_upload(SubGhzProtocolEncoderX10* instance) {
+    furi_assert(instance);
+    size_t index = 0;
+    size_t size_upload = (instance->generic.data_count_bit * 4) + 4;
+    if(size_upload > instance->encoder.size_upload) {
+        FURI_LOG_E(TAG, "Size upload exceeds allocated encoder buffer.");
+        return false;
+    } else {
+        instance->encoder.size_upload = size_upload;
+    }
+
+    instance->encoder.upload[index++] =
+        level_duration_make(true, subghz_protocol_x10_const.te_short);
+    instance->encoder.upload[index++] =
+        level_duration_make(false, subghz_protocol_x10_const.te_short * 10);
+
+    for(uint i = instance->generic.data_count_bit; i > 0; i--) {
+        if(bit_read(instance->generic.data, i - 1) != 0) {
+            instance->encoder.upload[index++] =
+                level_duration_make(true, subghz_protocol_x10_const.te_short);
+            instance->encoder.upload[index++] =
+                level_duration_make(false, subghz_protocol_x10_const.te_long);
+            instance->encoder.upload[index++] =
+                level_duration_make(true, subghz_protocol_x10_const.te_short);
+            instance->encoder.upload[index++] =
+                level_duration_make(false, subghz_protocol_x10_const.te_short);
+        } else {
+            instance->encoder.upload[index++] =
+                level_duration_make(true, subghz_protocol_x10_const.te_short);
+            instance->encoder.upload[index++] =
+                level_duration_make(false, subghz_protocol_x10_const.te_short);
+            instance->encoder.upload[index++] =
+                level_duration_make(true, subghz_protocol_x10_const.te_short);
+            instance->encoder.upload[index++] =
+                level_duration_make(false, subghz_protocol_x10_const.te_long);
+        }
+    }
+    instance->encoder.upload[index++] =
+        level_duration_make(true, subghz_protocol_x10_const.te_short);
+    instance->encoder.upload[index++] = level_duration_make(false, 10000);
+    return true;
+}
+
+bool subghz_protocol_encoder_x10_deserialize(void* context, FlipperFormat* flipper_format) {
+    furi_assert(context);
+    SubGhzProtocolEncoderX10* instance = context;
+    bool res = false;
+    do {
+        if(!subghz_block_generic_deserialize(&instance->generic, flipper_format)) {
+            FURI_LOG_E(TAG, "Deserialize error");
+            break;
+        }
+        if(instance->generic.data_count_bit != 32 && instance->generic.data_count_bit != 36) {
+            FURI_LOG_E(TAG, "Wrong number of bits in key");
+            break;
+        }
+
+        subghz_protocol_encoder_x10_get_upload(instance);
+        instance->encoder.is_runing = true;
+
+        res = true;
+    } while(false);
+    return res;
+}
+
+void subghz_protocol_encoder_x10_stop(void* context) {
+    SubGhzProtocolEncoderX10* instance = context;
+    instance->encoder.is_runing = false;
+}
+
+LevelDuration subghz_protocol_encoder_x10_yield(void* context) {
+    SubGhzProtocolEncoderX10* instance = context;
+
+    if(instance->encoder.repeat == 0 || !instance->encoder.is_runing) {
+        instance->encoder.is_runing = false;
+        return level_duration_reset();
+    }
+
+    LevelDuration ret = instance->encoder.upload[instance->encoder.front];
+
+    if(++instance->encoder.front == instance->encoder.size_upload) {
+        instance->encoder.repeat--;
+        instance->encoder.front = 0;
+    }
+
+    return ret;
+}
 
 void* subghz_protocol_decoder_x10_alloc(SubGhzEnvironment* environment) {
     UNUSED(environment);
@@ -144,7 +205,7 @@ void subghz_protocol_decoder_x10_feed(void* context, bool level, uint32_t durati
     case X10DecoderStepReset:
         if((!level) && (DURATION_DIFF(duration, subghz_protocol_x10_const.te_short * 10) <
                         subghz_protocol_x10_const.te_delta)) {
-//            FURI_LOG_D(TAG, "Reset to decode");
+            //            FURI_LOG_D(TAG, "Reset to decode");
             instance->decoder.parser_step = X10DecoderStepDecoderData;
             instance->decoder.decode_data = 0;
             instance->decoder.decode_count_bit = 0;
@@ -154,13 +215,13 @@ void subghz_protocol_decoder_x10_feed(void* context, bool level, uint32_t durati
         if(!level) {
             if(DURATION_DIFF(duration, subghz_protocol_x10_const.te_short) <
                subghz_protocol_x10_const.te_delta) {
-//                FURI_LOG_D(TAG, "Short low");
+                //                FURI_LOG_D(TAG, "Short low");
                 instance->decoder.decode_data <<= 1;
                 instance->decoder.decode_count_bit++;
             } else if(
                 DURATION_DIFF(duration, subghz_protocol_x10_const.te_long) <
                 subghz_protocol_x10_const.te_delta) {
-//                FURI_LOG_D(TAG, "Long low");
+                //                FURI_LOG_D(TAG, "Long low");
                 instance->decoder.decode_data <<= 1;
                 instance->decoder.decode_data |= 1;
                 instance->decoder.decode_count_bit++;
@@ -175,15 +236,15 @@ void subghz_protocol_decoder_x10_feed(void* context, bool level, uint32_t durati
                     bool is_valid = true;
                     instance->generic.data_count_bit = 0;
                     instance->generic.data = 0;
-                    for (uint i = 0; i < instance->decoder.decode_count_bit; i += 2) {
+                    for(uint i = 0; i < instance->decoder.decode_count_bit; i += 2) {
                         uint8_t cur_bit = instance->decoder.decode_data >> 62;
                         instance->decoder.decode_data <<= 2;
-                        if (cur_bit == 0x1) {
+                        if(cur_bit == 0x1) {
+                            instance->generic.data <<= 1;
+                            instance->generic.data_count_bit++;
+                        } else if(cur_bit == 0x02) {
                             instance->generic.data <<= 1;
                             instance->generic.data |= 1;
-                            instance->generic.data_count_bit++;
-                        } else if (cur_bit == 0x02) {
-                            instance->generic.data <<= 1;
                             instance->generic.data_count_bit++;
                         } else {
                             is_valid = false;
@@ -196,7 +257,7 @@ void subghz_protocol_decoder_x10_feed(void* context, bool level, uint32_t durati
                         instance->base.callback(&instance->base, instance->base.context);
                     }
                 }
-//                FURI_LOG_D(TAG, "End of signal %d", duration);
+                //                FURI_LOG_D(TAG, "End of signal %d", duration);
                 instance->decoder.parser_step = X10DecoderStepReset;
             } else {
                 FURI_LOG_D(TAG, "Invalid pause %d", duration);
@@ -205,7 +266,7 @@ void subghz_protocol_decoder_x10_feed(void* context, bool level, uint32_t durati
         } else {
             if(DURATION_DIFF(duration, subghz_protocol_x10_const.te_short) <
                subghz_protocol_x10_const.te_delta) {
-//                FURI_LOG_D(TAG, "Short high");
+                //                FURI_LOG_D(TAG, "Short high");
             } else {
                 FURI_LOG_D(TAG, "Invalid pulse %d", duration);
                 instance->decoder.parser_step = X10DecoderStepReset;
@@ -213,7 +274,7 @@ void subghz_protocol_decoder_x10_feed(void* context, bool level, uint32_t durati
         }
         if(instance->decoder.decode_count_bit > 0 && instance->decoder.decode_count_bit % 2 == 0) {
             unsigned int cur_bit = (instance->decoder.decode_data & 0x3);
-            if (cur_bit == 0x03 || cur_bit == 0x00) {
+            if(cur_bit == 0x03 || cur_bit == 0x00) {
                 FURI_LOG_D(TAG, "Decode error");
                 instance->decoder.parser_step = X10DecoderStepReset;
             }
@@ -234,7 +295,7 @@ void subghz_protocol_decoder_x10_get_string(void* context, string_t output) {
     SubGhzProtocolDecoderX10* instance = context;
 
     uint32_t shortened;
-    if (instance->generic.data_count_bit == 32) {
+    if(instance->generic.data_count_bit == 32) {
         shortened = instance->generic.data;
     } else {
         shortened = instance->generic.data >> 4;
@@ -243,14 +304,14 @@ void subghz_protocol_decoder_x10_get_string(void* context, string_t output) {
     bool group_bit = (shortened >> 5) & 1;
     bool status_bit = (shortened >> 4) & 1;
     uint8_t unit = shortened & 0x0F;
-    if (instance->generic.data_count_bit == 32) {
+    if(instance->generic.data_count_bit == 32) {
         string_cat_printf(
             output,
             "%s %dbit\r\n"
-            "Address:0x%026lX\r\n"
+            "Address:0x%07lX\r\n"
             "Group:%1d\r\n"
             "Status:%1d\r\n"
-            "Unit:%0x02X\r\n",
+            "Unit:%1x\r\n",
             instance->generic.protocol_name,
             instance->generic.data_count_bit,
             address,
@@ -294,8 +355,7 @@ bool subghz_protocol_decoder_x10_deserialize(void* context, FlipperFormat* flipp
         if(!subghz_block_generic_deserialize(&instance->generic, flipper_format)) {
             break;
         }
-        if(instance->generic.data_count_bit !=
-           subghz_protocol_x10_const.min_count_bit_for_found && instance->generic.data_count_bit != subghz_protocol_x10_const.min_count_bit_for_found + 8) {
+        if(instance->generic.data_count_bit != 32 && instance->generic.data_count_bit != 36) {
             FURI_LOG_E(TAG, "Wrong number of bits in key");
             break;
         }
