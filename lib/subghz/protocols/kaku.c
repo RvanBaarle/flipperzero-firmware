@@ -1,4 +1,4 @@
-#include "x10.h"
+#include "kaku.h"
 
 #include "../blocks/const.h"
 #include "../blocks/decoder.h"
@@ -6,23 +6,23 @@
 #include "../blocks/generic.h"
 #include "../blocks/math.h"
 
-#define TAG "SubGhzProtocolX10"
+#define TAG "SubGhzProtocolKAKU"
 
-static const SubGhzBlockConst subghz_protocol_x10_const = {
+static const SubGhzBlockConst subghz_protocol_kaku_const = {
     .te_short = 270,
     .te_long = 1300,
     .te_delta = 200,
     .min_count_bit_for_found = 64,
 };
 
-struct SubGhzProtocolDecoderX10 {
+struct SubGhzProtocolDecoderKAKU {
     SubGhzProtocolDecoderBase base;
 
     SubGhzBlockDecoder decoder;
     SubGhzBlockGeneric generic;
 };
 
-struct SubGhzProtocolEncoderX10 {
+struct SubGhzProtocolEncoderKAKU {
     SubGhzProtocolEncoderBase base;
 
     SubGhzProtocolBlockEncoder encoder;
@@ -34,44 +34,44 @@ typedef enum {
     X10DecoderStepDecoderData,
 } X10DecoderStep;
 
-const SubGhzProtocolDecoder subghz_protocol_x10_decoder = {
-    .alloc = subghz_protocol_decoder_x10_alloc,
-    .free = subghz_protocol_decoder_x10_free,
+const SubGhzProtocolDecoder subghz_protocol_kaku_decoder = {
+    .alloc = subghz_protocol_decoder_kaku_alloc,
+    .free = subghz_protocol_decoder_kaku_free,
 
-    .feed = subghz_protocol_decoder_x10_feed,
-    .reset = subghz_protocol_decoder_x10_reset,
+    .feed = subghz_protocol_decoder_kaku_feed,
+    .reset = subghz_protocol_decoder_kaku_reset,
 
-    .get_hash_data = subghz_protocol_decoder_x10_get_hash_data,
-    .serialize = subghz_protocol_decoder_x10_serialize,
-    .deserialize = subghz_protocol_decoder_x10_deserialize,
-    .get_string = subghz_protocol_decoder_x10_get_string,
+    .get_hash_data = subghz_protocol_decoder_kaku_get_hash_data,
+    .serialize = subghz_protocol_decoder_kaku_serialize,
+    .deserialize = subghz_protocol_decoder_kaku_deserialize,
+    .get_string = subghz_protocol_decoder_kaku_get_string,
 };
 
-const SubGhzProtocolEncoder subghz_protocol_x10_encoder = {
-    .alloc = subghz_protocol_encoder_x10_alloc,
-    .free = subghz_protocol_encoder_x10_free,
+const SubGhzProtocolEncoder subghz_protocol_kaku_encoder = {
+    .alloc = subghz_protocol_encoder_kaku_alloc,
+    .free = subghz_protocol_encoder_kaku_free,
 
-    .deserialize = subghz_protocol_encoder_x10_deserialize,
-    .stop = subghz_protocol_encoder_x10_stop,
-    .yield = subghz_protocol_encoder_x10_yield,
+    .deserialize = subghz_protocol_encoder_kaku_deserialize,
+    .stop = subghz_protocol_encoder_kaku_stop,
+    .yield = subghz_protocol_encoder_kaku_yield,
 };
 
-const SubGhzProtocol subghz_protocol_x10 = {
-    .name = SUBGHZ_PROTOCOL_X10_NAME,
+const SubGhzProtocol subghz_protocol_kaku = {
+    .name = SUBGHZ_PROTOCOL_KAKU_NAME,
     .type = SubGhzProtocolTypeStatic,
     .flag = SubGhzProtocolFlag_433 | SubGhzProtocolFlag_868 | SubGhzProtocolFlag_315 |
             SubGhzProtocolFlag_AM | SubGhzProtocolFlag_Decodable | SubGhzProtocolFlag_Load |
             SubGhzProtocolFlag_Save | SubGhzProtocolFlag_Send,
 
-    .decoder = &subghz_protocol_x10_decoder,
-    .encoder = &subghz_protocol_x10_encoder,
+    .decoder = &subghz_protocol_kaku_decoder,
+    .encoder = &subghz_protocol_kaku_encoder,
 };
 
-void* subghz_protocol_encoder_x10_alloc(SubGhzEnvironment* environment) {
+void* subghz_protocol_encoder_kaku_alloc(SubGhzEnvironment* environment) {
     UNUSED(environment);
-    SubGhzProtocolEncoderX10* instance = malloc(sizeof(SubGhzProtocolEncoderX10));
+    SubGhzProtocolEncoderKAKU* instance = malloc(sizeof(SubGhzProtocolEncoderKAKU));
 
-    instance->base.protocol = &subghz_protocol_x10;
+    instance->base.protocol = &subghz_protocol_kaku;
     instance->generic.protocol_name = instance->base.protocol->name;
 
     instance->encoder.repeat = 6;
@@ -81,14 +81,14 @@ void* subghz_protocol_encoder_x10_alloc(SubGhzEnvironment* environment) {
     return instance;
 }
 
-void subghz_protocol_encoder_x10_free(void* context) {
+void subghz_protocol_encoder_kaku_free(void* context) {
     furi_assert(context);
-    SubGhzProtocolEncoderX10* instance = context;
+    SubGhzProtocolEncoderKAKU* instance = context;
     free(instance->encoder.upload);
     free(instance);
 }
 
-static bool subghz_protocol_encoder_x10_get_upload(SubGhzProtocolEncoderX10* instance) {
+static bool subghz_protocol_encoder_kaku_get_upload(SubGhzProtocolEncoderKAKU* instance) {
     furi_assert(instance);
     size_t index = 0;
     size_t size_upload = (instance->generic.data_count_bit * 4) + 4;
@@ -102,49 +102,49 @@ static bool subghz_protocol_encoder_x10_get_upload(SubGhzProtocolEncoderX10* ins
     bool has_dimdata = instance->generic.data_count_bit == 36;
 
     instance->encoder.upload[index++] =
-        level_duration_make(true, subghz_protocol_x10_const.te_short);
+        level_duration_make(true, subghz_protocol_kaku_const.te_short);
     instance->encoder.upload[index++] =
-        level_duration_make(false, subghz_protocol_x10_const.te_short * 10);
+        level_duration_make(false, subghz_protocol_kaku_const.te_short * 10);
 
     for(uint i = instance->generic.data_count_bit; i > 0; i--) {
         if(i == 9 && has_dimdata) {
             instance->encoder.upload[index++] =
-                level_duration_make(true, subghz_protocol_x10_const.te_short);
+                level_duration_make(true, subghz_protocol_kaku_const.te_short);
             instance->encoder.upload[index++] =
-                level_duration_make(false, subghz_protocol_x10_const.te_short);
+                level_duration_make(false, subghz_protocol_kaku_const.te_short);
             instance->encoder.upload[index++] =
-                level_duration_make(true, subghz_protocol_x10_const.te_short);
+                level_duration_make(true, subghz_protocol_kaku_const.te_short);
             instance->encoder.upload[index++] =
-                level_duration_make(false, subghz_protocol_x10_const.te_short);
+                level_duration_make(false, subghz_protocol_kaku_const.te_short);
         } else if(bit_read(instance->generic.data, i - 1) != 0) {
             instance->encoder.upload[index++] =
-                level_duration_make(true, subghz_protocol_x10_const.te_short);
+                level_duration_make(true, subghz_protocol_kaku_const.te_short);
             instance->encoder.upload[index++] =
-                level_duration_make(false, subghz_protocol_x10_const.te_long);
+                level_duration_make(false, subghz_protocol_kaku_const.te_long);
             instance->encoder.upload[index++] =
-                level_duration_make(true, subghz_protocol_x10_const.te_short);
+                level_duration_make(true, subghz_protocol_kaku_const.te_short);
             instance->encoder.upload[index++] =
-                level_duration_make(false, subghz_protocol_x10_const.te_short);
+                level_duration_make(false, subghz_protocol_kaku_const.te_short);
         } else {
             instance->encoder.upload[index++] =
-                level_duration_make(true, subghz_protocol_x10_const.te_short);
+                level_duration_make(true, subghz_protocol_kaku_const.te_short);
             instance->encoder.upload[index++] =
-                level_duration_make(false, subghz_protocol_x10_const.te_short);
+                level_duration_make(false, subghz_protocol_kaku_const.te_short);
             instance->encoder.upload[index++] =
-                level_duration_make(true, subghz_protocol_x10_const.te_short);
+                level_duration_make(true, subghz_protocol_kaku_const.te_short);
             instance->encoder.upload[index++] =
-                level_duration_make(false, subghz_protocol_x10_const.te_long);
+                level_duration_make(false, subghz_protocol_kaku_const.te_long);
         }
     }
     instance->encoder.upload[index++] =
-        level_duration_make(true, subghz_protocol_x10_const.te_short);
+        level_duration_make(true, subghz_protocol_kaku_const.te_short);
     instance->encoder.upload[index++] = level_duration_make(false, 10000);
     return true;
 }
 
-bool subghz_protocol_encoder_x10_deserialize(void* context, FlipperFormat* flipper_format) {
+bool subghz_protocol_encoder_kaku_deserialize(void* context, FlipperFormat* flipper_format) {
     furi_assert(context);
-    SubGhzProtocolEncoderX10* instance = context;
+    SubGhzProtocolEncoderKAKU* instance = context;
     bool res = false;
     do {
         if(!subghz_block_generic_deserialize(&instance->generic, flipper_format)) {
@@ -156,7 +156,7 @@ bool subghz_protocol_encoder_x10_deserialize(void* context, FlipperFormat* flipp
             break;
         }
 
-        subghz_protocol_encoder_x10_get_upload(instance);
+        subghz_protocol_encoder_kaku_get_upload(instance);
         instance->encoder.is_runing = true;
 
         res = true;
@@ -164,13 +164,13 @@ bool subghz_protocol_encoder_x10_deserialize(void* context, FlipperFormat* flipp
     return res;
 }
 
-void subghz_protocol_encoder_x10_stop(void* context) {
-    SubGhzProtocolEncoderX10* instance = context;
+void subghz_protocol_encoder_kaku_stop(void* context) {
+    SubGhzProtocolEncoderKAKU* instance = context;
     instance->encoder.is_runing = false;
 }
 
-LevelDuration subghz_protocol_encoder_x10_yield(void* context) {
-    SubGhzProtocolEncoderX10* instance = context;
+LevelDuration subghz_protocol_encoder_kaku_yield(void* context) {
+    SubGhzProtocolEncoderKAKU* instance = context;
 
     if(instance->encoder.repeat == 0 || !instance->encoder.is_runing) {
         instance->encoder.is_runing = false;
@@ -187,35 +187,35 @@ LevelDuration subghz_protocol_encoder_x10_yield(void* context) {
     return ret;
 }
 
-void* subghz_protocol_decoder_x10_alloc(SubGhzEnvironment* environment) {
+void* subghz_protocol_decoder_kaku_alloc(SubGhzEnvironment* environment) {
     UNUSED(environment);
-    SubGhzProtocolDecoderX10* instance = malloc(sizeof(SubGhzProtocolDecoderX10));
+    SubGhzProtocolDecoderKAKU* instance = malloc(sizeof(SubGhzProtocolDecoderKAKU));
 
-    instance->base.protocol = &subghz_protocol_x10;
+    instance->base.protocol = &subghz_protocol_kaku;
     instance->generic.protocol_name = instance->base.protocol->name;
     return instance;
 }
 
-void subghz_protocol_decoder_x10_free(void* context) {
+void subghz_protocol_decoder_kaku_free(void* context) {
     furi_assert(context);
-    SubGhzProtocolDecoderX10* instance = context;
+    SubGhzProtocolDecoderKAKU* instance = context;
     free(instance);
 }
 
-void subghz_protocol_decoder_x10_reset(void* context) {
+void subghz_protocol_decoder_kaku_reset(void* context) {
     furi_assert(context);
-    SubGhzProtocolDecoderX10* instance = context;
+    SubGhzProtocolDecoderKAKU* instance = context;
     instance->decoder.parser_step = X10DecoderStepReset;
 }
 
-void subghz_protocol_decoder_x10_feed(void* context, bool level, uint32_t duration) {
+void subghz_protocol_decoder_kaku_feed(void* context, bool level, uint32_t duration) {
     furi_assert(context);
-    SubGhzProtocolDecoderX10* instance = context;
+    SubGhzProtocolDecoderKAKU* instance = context;
 
     switch(instance->decoder.parser_step) {
     case X10DecoderStepReset:
-        if((!level) && (DURATION_DIFF(duration, subghz_protocol_x10_const.te_short * 10) <
-                        subghz_protocol_x10_const.te_delta)) {
+        if((!level) && (DURATION_DIFF(duration, subghz_protocol_kaku_const.te_short * 10) <
+                        subghz_protocol_kaku_const.te_delta)) {
             //            FURI_LOG_D(TAG, "Reset to decode");
             instance->decoder.parser_step = X10DecoderStepDecoderData;
             instance->decoder.decode_data = 0;
@@ -224,25 +224,25 @@ void subghz_protocol_decoder_x10_feed(void* context, bool level, uint32_t durati
         break;
     case X10DecoderStepDecoderData:
         if(!level) {
-            if(DURATION_DIFF(duration, subghz_protocol_x10_const.te_short) <
-               subghz_protocol_x10_const.te_delta) {
+            if(DURATION_DIFF(duration, subghz_protocol_kaku_const.te_short) <
+               subghz_protocol_kaku_const.te_delta) {
                 //                FURI_LOG_D(TAG, "Short low");
                 instance->decoder.decode_data <<= 1;
                 instance->decoder.decode_count_bit++;
             } else if(
-                DURATION_DIFF(duration, subghz_protocol_x10_const.te_long) <
-                subghz_protocol_x10_const.te_delta) {
+                DURATION_DIFF(duration, subghz_protocol_kaku_const.te_long) <
+                subghz_protocol_kaku_const.te_delta) {
                 //                FURI_LOG_D(TAG, "Long low");
                 instance->decoder.decode_data <<= 1;
                 instance->decoder.decode_data |= 1;
                 instance->decoder.decode_count_bit++;
             } else if(
-                duration >= ((uint32_t)subghz_protocol_x10_const.te_short * 10 +
-                             subghz_protocol_x10_const.te_delta)) {
+                duration >= ((uint32_t)subghz_protocol_kaku_const.te_short * 10 +
+                             subghz_protocol_kaku_const.te_delta)) {
                 if(instance->decoder.decode_count_bit ==
-                       subghz_protocol_x10_const.min_count_bit_for_found ||
+                       subghz_protocol_kaku_const.min_count_bit_for_found ||
                    instance->decoder.decode_count_bit ==
-                       subghz_protocol_x10_const.min_count_bit_for_found + 8) {
+                       subghz_protocol_kaku_const.min_count_bit_for_found + 8) {
                     FURI_LOG_D(TAG, "Signal detected");
                     bool is_valid = true;
                     instance->generic.data_count_bit = 0;
@@ -278,8 +278,8 @@ void subghz_protocol_decoder_x10_feed(void* context, bool level, uint32_t durati
                 instance->decoder.parser_step = X10DecoderStepReset;
             }
         } else {
-            if(DURATION_DIFF(duration, subghz_protocol_x10_const.te_short) <
-               subghz_protocol_x10_const.te_delta) {
+            if(DURATION_DIFF(duration, subghz_protocol_kaku_const.te_short) <
+               subghz_protocol_kaku_const.te_delta) {
                 //                FURI_LOG_D(TAG, "Short high");
             } else {
                 FURI_LOG_D(TAG, "Invalid pulse %d", duration);
@@ -298,16 +298,16 @@ void subghz_protocol_decoder_x10_feed(void* context, bool level, uint32_t durati
     }
 }
 
-uint8_t subghz_protocol_decoder_x10_get_hash_data(void* context) {
+uint8_t subghz_protocol_decoder_kaku_get_hash_data(void* context) {
     furi_assert(context);
-    SubGhzProtocolDecoderX10* instance = context;
+    SubGhzProtocolDecoderKAKU* instance = context;
     return subghz_protocol_blocks_get_hash_data(
         &instance->decoder, (instance->decoder.decode_count_bit - 1 / 8) + 1);
 }
 
-void subghz_protocol_decoder_x10_get_string(void* context, string_t output) {
+void subghz_protocol_decoder_kaku_get_string(void* context, string_t output) {
     furi_assert(context);
-    SubGhzProtocolDecoderX10* instance = context;
+    SubGhzProtocolDecoderKAKU* instance = context;
 
     uint32_t shortened;
     if(instance->generic.data_count_bit == 32) {
@@ -353,18 +353,18 @@ void subghz_protocol_decoder_x10_get_string(void* context, string_t output) {
     }
 }
 
-bool subghz_protocol_decoder_x10_serialize(
+bool subghz_protocol_decoder_kaku_serialize(
     void* context,
     FlipperFormat* flipper_format,
     SubGhzPresetDefinition* preset) {
     furi_assert(context);
-    SubGhzProtocolDecoderX10* instance = context;
+    SubGhzProtocolDecoderKAKU* instance = context;
     return subghz_block_generic_serialize(&instance->generic, flipper_format, preset);
 }
 
-bool subghz_protocol_decoder_x10_deserialize(void* context, FlipperFormat* flipper_format) {
+bool subghz_protocol_decoder_kaku_deserialize(void* context, FlipperFormat* flipper_format) {
     furi_assert(context);
-    SubGhzProtocolDecoderX10* instance = context;
+    SubGhzProtocolDecoderKAKU* instance = context;
     bool ret = false;
     do {
         if(!subghz_block_generic_deserialize(&instance->generic, flipper_format)) {

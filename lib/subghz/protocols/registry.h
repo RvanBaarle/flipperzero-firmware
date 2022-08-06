@@ -37,7 +37,7 @@
 #include "intertechno_v3.h"
 #include "clemsa.h"
 #include "oregon2.h"
-#include "x10.h"
+#include "kaku.h"
 
 /**
  * Registration by name SubGhzProtocol.
