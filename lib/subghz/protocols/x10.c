@@ -99,13 +99,24 @@ static bool subghz_protocol_encoder_x10_get_upload(SubGhzProtocolEncoderX10* ins
         instance->encoder.size_upload = size_upload;
     }
 
+    bool has_dimdata = instance->generic.data_count_bit == 36;
+
     instance->encoder.upload[index++] =
         level_duration_make(true, subghz_protocol_x10_const.te_short);
     instance->encoder.upload[index++] =
         level_duration_make(false, subghz_protocol_x10_const.te_short * 10);
 
     for(uint i = instance->generic.data_count_bit; i > 0; i--) {
-        if(bit_read(instance->generic.data, i - 1) != 0) {
+        if(i == 9 && has_dimdata) {
+            instance->encoder.upload[index++] =
+                level_duration_make(true, subghz_protocol_x10_const.te_short);
+            instance->encoder.upload[index++] =
+                level_duration_make(false, subghz_protocol_x10_const.te_short);
+            instance->encoder.upload[index++] =
+                level_duration_make(true, subghz_protocol_x10_const.te_short);
+            instance->encoder.upload[index++] =
+                level_duration_make(false, subghz_protocol_x10_const.te_short);
+        } else if(bit_read(instance->generic.data, i - 1) != 0) {
             instance->encoder.upload[index++] =
                 level_duration_make(true, subghz_protocol_x10_const.te_short);
             instance->encoder.upload[index++] =
@@ -246,6 +257,9 @@ void subghz_protocol_decoder_x10_feed(void* context, bool level, uint32_t durati
                             instance->generic.data <<= 1;
                             instance->generic.data |= 1;
                             instance->generic.data_count_bit++;
+                        } else if(i == 54) {
+                            instance->generic.data <<= 1;
+                            instance->generic.data_count_bit++;
                         } else {
                             is_valid = false;
                             FURI_LOG_D(TAG, "Signal not valid");
@@ -272,7 +286,8 @@ void subghz_protocol_decoder_x10_feed(void* context, bool level, uint32_t durati
                 instance->decoder.parser_step = X10DecoderStepReset;
             }
         }
-        if(instance->decoder.decode_count_bit > 0 && instance->decoder.decode_count_bit % 2 == 0) {
+        if(instance->decoder.decode_count_bit > 0 && instance->decoder.decode_count_bit != 56 &&
+           instance->decoder.decode_count_bit % 2 == 0) {
             unsigned int cur_bit = (instance->decoder.decode_data & 0x3);
             if(cur_bit == 0x03 || cur_bit == 0x00) {
                 FURI_LOG_D(TAG, "Decode error");
@@ -302,37 +317,37 @@ void subghz_protocol_decoder_x10_get_string(void* context, string_t output) {
     }
     uint32_t address = shortened >> 6;
     bool group_bit = (shortened >> 5) & 1;
-    bool status_bit = (shortened >> 4) & 1;
+    bool power_bit = (shortened >> 4) & 1;
     uint8_t unit = shortened & 0x0F;
     if(instance->generic.data_count_bit == 32) {
         string_cat_printf(
             output,
             "%s %dbit\r\n"
             "Address:0x%07lX\r\n"
-            "Group:%1d\r\n"
-            "Status:%1d\r\n"
-            "Unit:%1x\r\n",
+            "Group:%s\r\n"
+            "Power:%s\r\n"
+            "Unit:0x%02X\r\n",
             instance->generic.protocol_name,
             instance->generic.data_count_bit,
             address,
-            group_bit,
-            status_bit,
+            group_bit ? "yes" : "no",
+            power_bit ? "on" : "off",
             unit);
     } else {
         uint8_t dim_level = instance->generic.data & 0x0f;
         string_cat_printf(
             output,
             "%s %dbit\r\n"
-            "Address:0x%026lX\r\n"
-            "Group:%1d\r\n"
-            "Status:%1d\r\n"
+            "Address:0x%07lX\r\n"
+            "Group:%s\r\n"
+            "Power:%s\r\n"
             "Unit:0x%02X\r\n"
-            "Dim:0x%02X\r\n",
+            "Brightness:% 2d/15\r\n",
             instance->generic.protocol_name,
             instance->generic.data_count_bit,
             address,
-            group_bit,
-            status_bit,
+            group_bit ? "yes" : "no",
+            power_bit ? "on" : "off",
             unit,
             dim_level);
     }
